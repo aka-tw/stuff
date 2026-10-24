@@ -1,0 +1,38 @@
+PAT='squid|danted|3proxy|tinyproxy|microsocks|sockd|privoxy|x-ui|3x-ui|xray|v2ray|sing-box|shadowsocks|ssserver|sslocal|trojan|hysteria|tuic|wireguard|wg-quick|wg-easy|amnezia|awg|openvpn|strongswan|ipsec|xl2tpd|pptpd|ocserv|openconnect|tor|outline|brook|gost|frps|frpc|realm|redsocks|tailscale|zerotier|nebula|headscale'
+BOUND="(^|[/[:space:].:_-])(${PAT})([/[:space:].:_-]|$)"
+
+echo '### PROCESSES'
+ps -eo user,pid,ppid,stat,lstart,cmd --cols 300 \
+  | grep -Ei "$BOUND" \
+  | grep -Ev 'grep|PAT=|BOUND=' || true
+
+echo
+echo '### LISTEN PORTS'
+ss -H -lntup 2>/dev/null \
+  | grep -Ei "$BOUND|:(1080|1081|3128|3129|3130|4443|51820|51821|1194|500|4500|1701|1723|8388|8389|8443|8888|9000|9090|10086|54321|2053|2083|2087|2096)([^0-9]|$)" || true
+
+echo
+echo '### SYSTEMD'
+systemctl list-units --type=service --all --no-pager --plain 2>/dev/null \
+  | grep -Ei "$BOUND" || true
+
+echo
+echo '### DOCKER'
+if command -v docker >/dev/null 2>&1; then
+  docker ps -a --format '{{.ID}} {{.Image}} {{.Names}} {{.Ports}} {{.Status}}' 2>/dev/null \
+    | grep -Ei "$BOUND|:(1080|1081|3128|3129|3130|4443|51820|51821|1194|500|4500|1701|1723|8388|8389|8443|8888|9000|9090|10086|54321|2053|2083|2087|2096)([^0-9]|$)" || true
+fi
+
+echo
+echo '### CONFIGS'
+find /etc /usr/local/etc /opt /root -maxdepth 5 -xdev \
+  \( -path '/root/.cache' \
+     -o -path '/root/.cursor-server' \
+     -o -path '/root/.oh-my-zsh' \
+     -o -path '/root/.npm' \
+     -o -path '*/node_modules' \
+     -o -path '*/.git' \
+     -o -path '*/cache' \) -prune \
+  -o -print 2>/dev/null \
+  | grep -Ei '(^|/)(x-ui|3x-ui|xray|v2ray|sing-box|wireguard|wg-easy|openvpn|squid|3proxy|danted|shadowsocks|tor|gost|hysteria|tinyproxy|microsocks|privoxy|trojan|strongswan|ipsec|xl2tpd|pptpd|ocserv|tailscale|zerotier|headscale)([./_-]|$)|/wg[^/]*\.conf$' \
+  | sort -u && history -c
